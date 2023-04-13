@@ -199,8 +199,7 @@ class Trainer(object):
         torch.save(supports,'adj.pt')
         self.model.load_state_dict(best_model)
         self.model.load_state_dict(best_model)
-        #self.val_epoch(self.args.epochs, self.test_loader)
-        fixed_mask = self.test(self.model, self.args, self.test_loader, self.scaler, self.logger)
+        
         self.optimizer.load_state_dict(best_optimizer)
         self.logger.info('*********************************Loading current best model')
         self.logger.info('*********************************Loading optimizer of the best model')
@@ -246,47 +245,7 @@ class Trainer(object):
             if epoch%20 ==0:
                 x_path = 'results/ada_matrix/'+str(epoch)+'.pt'
                 torch.save(A,x_path)
-        '''    
-        self.logger.info('*********************************fixed sparisty training begin')
-        best_model = None
-        best_loss = float('inf')
-        not_improved_count = 0
-        train_loss_list = []
-        val_loss_list = []
        
-        fixed_mask = self.model.sample_weights().detach()
-        for epoch in range(current_epoch, 1+self.args.epochs +self.args.l0epochs): 
-            train_epoch_loss = self.train_fixed_epoch(epoch,fixed_mask)
-            if self.val_loader == None:
-                val_dataloader = self.test_loader
-            else:
-                val_dataloader = self.val_loader
-            val_epoch_loss,sparse = self.val_epoch(epoch, val_dataloader)
-            train_loss_list.append(train_epoch_loss)
-            val_loss_list.append(val_epoch_loss)
-            if train_epoch_loss > 1e6:
-                self.logger.warning('Gradient explosion detected. Ending...')
-                break
-                
-            if val_epoch_loss < best_loss and sparse>0.98: 
-                best_loss = val_epoch_loss
-                not_improved_count = 0
-                best_state = True
-            else:
-                not_improved_count += 1
-                best_state = False
-            # early stop
-            if self.args.early_stop:
-                if not_improved_count == self.args.early_stop_patience:
-                    self.logger.info("Validation performance didn\'t improve for {} epochs. "
-                                    "Training stops.".format(self.args.early_stop_patience))
-                    break
-            # save the best state
-          
-            if best_state == True:
-                self.logger.info('*********************************Current l0norm best model saved!')
-                best_model = copy.deepcopy(self.model.state_dict())
-        '''
         training_time = time.time() - start_time
         self.logger.info("Total training time: {:.4f}min, best loss: {:.6f}".format((training_time / 60), best_loss))
 
@@ -328,8 +287,8 @@ class Trainer(object):
         model.eval()
         y_pred = []
         y_true = []
-        #if mask is None:
-         #   mask = model.sample_weights().detach() 
+        if mask is None:
+            mask = model.sample_weights().detach() 
         
         with torch.no_grad():
             for batch_idx, (data, target) in enumerate(data_loader):
