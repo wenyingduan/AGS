@@ -107,7 +107,8 @@ class AGCRN(nn.Module):
         self.l0epochs = args.l0epochs
         #L0 norm
         self.prior_prec = weight_decay
-        self.qz_loga = nn.Parameter(torch.Tensor(self.num_node, self.num_node)) # location for the adjacency matrix A
+        #self.qz_loga = nn.Parameter(torch.Tensor(self.num_node, self.num_node)) # location for the adjacency matrix A
+        self.qz_loga = None
         self.temperature = temperature
         self.droprate_init = droprate_init if droprate_init != 0. else 0.5
         self.lamba = lamba
@@ -121,6 +122,7 @@ class AGCRN(nn.Module):
         #self.x_embed = nn.Linear(args.input_dim, args.x_embed_dim)
         #self.encoder = AVWDCLSTM(args.num_nodes, args.input_dim, args.rnn_units, args.cheb_k, args.embed_dim, 
                                 # args.num_layers)
+        self.qz_project = nn.Linear(args.embed_dim, self.num_node)
         self.encoder = AVWDCRNN(args.num_nodes, args.input_dim, args.rnn_units, args.cheb_k, args.embed_dim, 
                                  args.num_layers)
 
@@ -128,7 +130,8 @@ class AGCRN(nn.Module):
         self.end_conv = nn.Conv2d(1, args.horizon * self.output_dim, kernel_size=(1, self.hidden_dim), bias=True)
     def reset_parameters(self):
         #init.kaiming_normal_(self.node_embeddings, mode='fan_out')
-        self.qz_loga.data.normal_(math.log(1 - self.droprate_init) - math.log(self.droprate_init), 1e-2)
+        if self.qz_loga is not None:
+            self.qz_loga.data.normal_(math.log(1 - self.droprate_init) - math.log(self.droprate_init), 1e-2)
         
     def constrain_parameters(self, **kwargs):
         self.qz_loga.data.clamp_(min=math.log(1e-2), max=math.log(1e2))
@@ -186,6 +189,7 @@ class AGCRN(nn.Module):
         mask = None
         #mask =torch.zeros(170,170).to(source.device)
         if self.l0epochs+self.epochs>=epoch>self.epochs:
+            self.qz_loga = self.qz_project(self.node_embeddings)
             mask = self.sample_weights()
             #mask =torch.zeros(170,170).to(source.device)
         #elif 750>epoch>=550:
